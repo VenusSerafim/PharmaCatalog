@@ -1,7 +1,8 @@
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from src.routes.medications import router as medications_router
 
+from src.routes.medications import router as medications_router
 from src.database.connection import (
     connect_to_mongo,
     close_mongo_connection,
@@ -24,6 +25,7 @@ app = FastAPI(
 )
 
 app.include_router(medications_router)
+
 
 @app.get("/", tags=["Geral"])
 def read_root():
@@ -51,5 +53,3 @@ def database_health():
         "status": "connected",
         "collections": db.list_collection_names()
     }
-
-    print("ROTAS REGISTRADAS:", [route.path for route in app.routes])
