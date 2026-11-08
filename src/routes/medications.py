@@ -1,3 +1,4 @@
+
 import re
 from datetime import datetime, timezone
 
@@ -8,11 +9,16 @@ from fastapi import APIRouter, HTTPException, Query, status
 from src.database.connection import get_database
 from src.schemas.medication import MedicationCreate
 
+
 router = APIRouter(
     prefix="/medicamentos",
     tags=["Medicamentos"]
 )
 
+
+# =====================================================
+# CADASTRAR MEDICAMENTO
+# =====================================================
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_medication(medication: MedicationCreate):
@@ -51,6 +57,11 @@ def create_medication(medication: MedicationCreate):
     }
 
 
+# =====================================================
+# LISTAR MEDICAMENTOS
+# GET /medicamentos/
+# =====================================================
+
 @router.get("/")
 def list_medications(
     status: str = Query(
@@ -58,6 +69,7 @@ def list_medications(
         pattern="^(ativo|inativo|todos)$"
     )
 ):
+
     db = get_database()
 
     if db is None:
@@ -71,6 +83,7 @@ def list_medications(
     medications = []
 
     for item in db["medicamentos"].find(filtro):
+
         medications.append({
             "id": str(item["_id"]),
             "nome_generico": item["nome_generico"],
@@ -91,6 +104,11 @@ def list_medications(
         "medicamentos": medications
     }
 
+
+# =====================================================
+# PESQUISAR MEDICAMENTO POR NOME
+# =====================================================
+
 @router.get("/buscar")
 def search_medications(
     nome: str = Query(..., min_length=2)
@@ -108,8 +126,18 @@ def search_medications(
 
     filtro = {
         "$or": [
-            {"nome_generico": {"$regex": termo, "$options": "i"}},
-            {"nome_comercial": {"$regex": termo, "$options": "i"}}
+            {
+                "nome_generico": {
+                    "$regex": termo,
+                    "$options": "i"
+                }
+            },
+            {
+                "nome_comercial": {
+                    "$regex": termo,
+                    "$options": "i"
+                }
+            }
         ]
     }
 
@@ -137,6 +165,60 @@ def search_medications(
         "medicamentos": resultados
     }
 
+
+# =====================================================
+# CONSULTAR MEDICAMENTO POR ID
+# =====================================================
+
+@router.get("/{medication_id}")
+def get_medication(medication_id: str):
+
+    db = get_database()
+
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Banco de dados indisponível."
+        )
+
+    try:
+        object_id = ObjectId(medication_id)
+
+    except InvalidId:
+        raise HTTPException(
+            status_code=400,
+            detail="ID de medicamento inválido."
+        )
+
+    item = db["medicamentos"].find_one({
+        "_id": object_id
+    })
+
+    if item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Medicamento não encontrado."
+        )
+
+    return {
+        "id": str(item["_id"]),
+        "nome_generico": item["nome_generico"],
+        "nome_comercial": item.get("nome_comercial"),
+        "categoria": item["categoria"],
+        "concentracao": item["concentracao"],
+        "apresentacao": item["apresentacao"],
+        "preco_aquisicao": str(
+            item["preco_aquisicao"].to_decimal()
+        ),
+        "moeda": item["moeda"],
+        "status": item["status"]
+    }
+
+
+# =====================================================
+# ATUALIZAR MEDICAMENTO
+# =====================================================
+
 @router.put("/{medication_id}")
 def update_medication(
     medication_id: str,
@@ -153,6 +235,7 @@ def update_medication(
 
     try:
         object_id = ObjectId(medication_id)
+
     except InvalidId:
         raise HTTPException(
             status_code=400,
@@ -183,6 +266,11 @@ def update_medication(
         "message": "Medicamento atualizado com sucesso."
     }
 
+
+# =====================================================
+# INATIVAR MEDICAMENTO
+# =====================================================
+
 @router.patch("/{medication_id}/inativar")
 def deactivate_medication(medication_id: str):
 
@@ -196,6 +284,7 @@ def deactivate_medication(medication_id: str):
 
     try:
         object_id = ObjectId(medication_id)
+
     except InvalidId:
         raise HTTPException(
             status_code=400,
@@ -203,7 +292,10 @@ def deactivate_medication(medication_id: str):
         )
 
     result = db["medicamentos"].update_one(
-        {"_id": object_id, "status": "ativo"},
+        {
+            "_id": object_id,
+            "status": "ativo"
+        },
         {
             "$set": {
                 "status": "inativo",
